@@ -17,7 +17,7 @@ export default {
         try {
 			const tag = await Tags.create({
 				name: interaction.user.username,
-				username: steamId,
+				steamId: steamId,
 			});
 
 			await interaction.editReply(`Steam ID ${steamId} added for user ${tag.name}.`);

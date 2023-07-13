@@ -13,8 +13,8 @@ async function fetchUserPeer(userId, peerId) {
       throw new Error(JSON.stringify(data));
     }
     
-    for (let i = data.length; i >= 0; i--) {
-      if (data[i].account_id === peerId) {
+    for (let i = 0; i < data.length; i++) {
+      if (data[i].account_id == peerId) { // string and number
         peer = data[i]
         peer.matches = `https://www.opendota.com/players/${userId}/matches?included_account_id=${peerId}`
         break;
@@ -42,9 +42,18 @@ export default {
           // equivalent to: UPDATE tags SET usage_count = usage_count + 1 WHERE name = 'tagName';
           tag.increment('usage_count');
 
-          const peer = await fetchUserPeer(tag.steamId, steamId);
-
-          await interaction.editReply(peer.matches);
+          try {
+            const peer = await fetchUserPeer(tag.steamId, steamId);
+            
+            if (peer.matches) {
+              await interaction.editReply(peer.matches);
+            } else {
+              await interaction.editReply({content: `No data found for peer ${steamId}`, ephemeral: true });
+            }
+          } catch (error) {
+            await interaction.editReply({content: `Uh oh, ${error.message}`, ephemeral: true });
+          }
+          
         } else {
             await interaction.editReply({content: `${interaction.user.username} has not setup a steam ID`, ephemeral: true });
         }

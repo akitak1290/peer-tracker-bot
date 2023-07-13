@@ -28,8 +28,8 @@ const eventsPath = path.join(process.cwd(), 'events');
 const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
 
 for (const file of eventFiles) {
-	const filePath = `./commands/${file}`;
-	const event = await import(filePath);
+	const filePath = `./events/${file}`;
+	const { default: event } = await import(filePath);
 	if (event.once) {
 		client.once(event.name, (...args) => event.execute(...args));
 	} else {

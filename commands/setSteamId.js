@@ -1,20 +1,20 @@
-import { SlashCommandBuilder } from "discord.js";
-import Tags from "../db.js";
+import { SlashCommandBuilder } from 'discord.js';
+import Tags from '../db.js';
 
 export default {
-    data: new SlashCommandBuilder()
-        .setName('setid')
-        .setDescription('Set user\'s steam ID')
-        .addStringOption(option =>
-            option
-                .setName('id')
-                .setDescription('steam ID')
-                .setRequired(true)),
-    async execute(interaction) {
-        await interaction.deferReply();
-        const steamId = interaction.options.getString('id');
+	data: new SlashCommandBuilder()
+		.setName('setid')
+		.setDescription('Set user\'s steam ID')
+		.addStringOption(option =>
+			option
+				.setName('id')
+				.setDescription('steam ID')
+				.setRequired(true)),
+	async execute(interaction) {
+		await interaction.deferReply();
+		const steamId = interaction.options.getString('id');
 
-        try {
+		try {
 			const tag = await Tags.create({
 				name: interaction.user.username,
 				steamId: steamId,
@@ -24,10 +24,11 @@ export default {
 		}
 		catch (error) {
 			if (error.name === 'SequelizeUniqueConstraintError') {
-                await interaction.editReply({content: 'A steam ID is already linked to this user.', ephemeral: true });
-			} else {
-                await interaction.editReply({content: 'Something went wrong with adding your steam id.', ephemeral: true });
-            }
+				await interaction.editReply({ content: 'A steam ID is already linked to this user.', ephemeral: true });
+			}
+			else {
+				await interaction.editReply({ content: 'Something went wrong with adding your steam id.', ephemeral: true });
+			}
 		}
-    }
+	},
 };

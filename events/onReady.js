@@ -5,7 +5,8 @@ export default {
 	name: Events.ClientReady,
 	once: true,
 	execute(client) {
-		Tags.sync(); // connect with the db
+		// connect with the db
+		Tags.sync();
 		console.log(`Ready! Logged in as ${client.user.tag}`);
 	},
 };

@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from 'discord.js';
-import Tags from '../db.js';
+import Tags from '../db/index.js';
 
 export default {
 	data: new SlashCommandBuilder()

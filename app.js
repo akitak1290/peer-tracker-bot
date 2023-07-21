@@ -4,6 +4,7 @@ import 'dotenv/config';
 import path from 'path';
 import fs from 'fs';
 
+import logger from './utils/logger.js';
 async function app() {
 	const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -13,6 +14,7 @@ async function app() {
 	const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 
 	// load command files
+	logger.info(`Loading ${commandFiles.length} discord bot command files`);
 	for (const file of commandFiles) {
 		const filePath = `./commands/${file}`;
 		const { default: command } = await import(filePath);
@@ -21,7 +23,7 @@ async function app() {
 			client.commands.set(command.data.name, command);
 		}
 		else {
-			console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
+			logger.warning(`The command at ${filePath} is missing a required "data" or "execute" property.`);
 		}
 	}
 
@@ -29,6 +31,7 @@ async function app() {
 	const eventsPath = path.join(process.cwd(), 'events');
 	const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
 
+	logger.info(`Loading ${eventFiles.length} discord bot event handlers files`);
 	for (const file of eventFiles) {
 		const filePath = `./events/${file}`;
 		const { default: event } = await import(filePath);

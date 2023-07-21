@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import Tags from '../db.js';
+import Tags from '../db/index.js';
 
 async function fetchUser(userId) {
 	// API endpoint to fetch user's peers

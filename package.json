@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "peer tracker bot",
   "main": "app.js",
+  "workspaces": [
+    "packages/dota"
+  ],
   "type": "module",
   "engines": {
     "node": "18.x"
@@ -16,9 +19,11 @@
   "dependencies": {
     "canvas": "^2.11.2",
     "discord.js": "^14.11.0",
+    "dota2-gsi": "^1.0.2",
     "dotenv": "^16.3.1",
     "sequelize": "^6.32.1",
-    "sqlite3": "^5.1.6"
+    "sqlite3": "^5.1.6",
+    "winston": "^3.10.0"
   },
   "devDependencies": {
     "eslint": "^8.44.0"

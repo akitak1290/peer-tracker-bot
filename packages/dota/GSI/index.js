@@ -6,6 +6,12 @@ class GSIServer extends EventEmitter {
 	constructor() {
 		super();
 		// start express server
+		this.server = null;
+		this._inGame = false;
+		this._liveGameWatcher = -1;
+	}
+
+	initiate() {
 		this.server = new d2gsi();
 		this._inGame = false;
 		this._liveGameWatcher = -1;
@@ -21,9 +27,12 @@ class GSIServer extends EventEmitter {
 
 			// eslint-disable-next-line no-unused-vars
 			client.on('map:clock_time', (_) => {
-				if (!this._inGame) {
+				// if gamestate.player.team2 is present,
+				// user is spectating a match
+				// also, make sure it is not a custom game
+				if (!this._inGame && !client.gamestate.player.team2 && client.gamestate.map.customgamename === '') {
 					this._inGame = true;
-					this.emit('getLiveMatchData');
+					this.emit('liveMatchData', client.gamestate.player.steamid);
 				}
 
 				clearTimeout(this._liveGameWatcher);

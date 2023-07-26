@@ -22,6 +22,7 @@ const Tags = sequelize.define('tags', {
 		unique: true,
 	},
 	steamId: Sequelize.STRING,
+	watching: Sequelize.BOOLEAN,
 	usage_count: {
 		type: Sequelize.INTEGER,
 		defaultValue: 0,

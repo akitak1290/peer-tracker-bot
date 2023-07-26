@@ -3,25 +3,22 @@ import Tags from '../db/index.js';
 
 export default {
 	data: new SlashCommandBuilder()
-		.setName('setid')
-		.setDescription('Set user\'s steam ID')
-		.addStringOption(option =>
-			option
-				.setName('id')
-				.setDescription('steam ID')
-				.setRequired(true)),
+		.setName('setwatcher')
+		.setDescription('Allow bot to know when user is in a dota match'),
 	async execute(interaction) {
 		await interaction.deferReply();
-		const steamId = interaction.options.getString('id');
 
 		try {
-			const tag = await Tags.create({
-				name: interaction.user.username,
-				watching: false,
-				steamId: steamId,
-			});
+			const user = await Tags.findOne({ where: { name: interaction.user.username } });
 
-			await interaction.editReply(`Steam ID ${steamId} added for user ${tag.name}.`);
+			if (user) {
+				await Tags.update(
+					{ watching: !user.watching },
+					{ where: { name: user.name } },
+				);
+			}
+
+			await interaction.editReply(`Watching status set to ${!user.watching} for user ${user.name}.`);
 		}
 		catch (error) {
 			if (error.name === 'SequelizeUniqueConstraintError') {

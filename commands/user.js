@@ -64,6 +64,7 @@ export default {
 				.addFields(
 					{ name: '\u200B', value: '\u200B' },
 					{ name: 'Steam ID', value: `${tag.steamId}` },
+					{ name: 'Watching', value: `Subscribed to watcher? : ${tag.watching ? 'yes' : 'no'}` },
 					{ name: 'Win: ', value: `${user.win}`, inline: true },
 					{ name: 'Lose: ', value: `${user.lose}`, inline: true },
 				)

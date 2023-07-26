@@ -9,7 +9,6 @@ import steamClientSingleton from './steam/index.js';
 
 // ! IMPORTANT: FIX package/dota/.env not being properly referenced
 // ! for now, move nested .env to outer
-steamClientSingleton.connect();
 
 export async function getMatchPlayers(steamId32Bit) {
 	const data = await steamClientSingleton.getRealTimeDataPlayers(steamId32Bit);

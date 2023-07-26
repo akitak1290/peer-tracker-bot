@@ -1,12 +1,18 @@
 // Require the necessary discord.js classes
-import { Client, Collection, GatewayIntentBits } from 'discord.js';
+import { Collection } from 'discord.js';
 import 'dotenv/config';
 import path from 'path';
 import fs from 'fs';
 
+import client from './client.js';
+import steamClientSingleton from './packages/dota/steam/index.js';
+import gsiServerSingleton from './packages/dota/GSI/index.js';
+
 import logger from './utils/logger.js';
 async function app() {
-	const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+	// initialize packages
+	steamClientSingleton.connect();
+	gsiServerSingleton.initiate();
 
 	// command handler
 	client.commands = new Collection();

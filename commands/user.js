@@ -2,6 +2,9 @@ import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import Tags from '../db/index.js';
 
 async function fetchUser(userId) {
+	// convert 64bit steam id to 32bit dota id
+	userId = Number(userId.substr(-16, 16)) - 6561197960265728;
+
 	// API endpoint to fetch user's peers
 	const url = `https://api.opendota.com/api/players/${userId}`;
 	const lastMatchUrl = url + '/matches?limit=1';
@@ -60,11 +63,12 @@ export default {
 				.addFields({ name: 'Last match: ', value: `[${user.lastMatchId}](${user.lastMatch})` })
 				.addFields(
 					{ name: '\u200B', value: '\u200B' },
+					{ name: 'Steam ID', value: `${tag.steamId}` },
 					{ name: 'Win: ', value: `${user.win}`, inline: true },
 					{ name: 'Lose: ', value: `${user.lose}`, inline: true },
 				)
 				.setTimestamp()
-				.setFooter({ text: 'That\'s all I got, what did you expect? More?!' });
+				.setFooter({ text: 'That\'s all I\'ve got, what did you expect? More?!' });
 			await interaction.editReply({ embeds: [userEmbed] });
 		}
 		else {

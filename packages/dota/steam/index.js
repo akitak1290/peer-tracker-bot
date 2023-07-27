@@ -35,7 +35,7 @@ class SteamClient {
 		this._steamClient.on('logOnResponse', (logOnRes) => {
 			logger.info(`[STEAMCLIENT] logged in as ${process.env.STEAM_USER_NAME}`);
 			// set status to online
-			// this._steamFriends.setPersonaState(Steam.EPersonaState.Busy);
+			this._steamFriends.setPersonaState(Steam.EPersonaState.Busy);
 
 			if (logOnRes.eresult == Steam.EResult.OK) {
 				this._dota2.launch();
@@ -87,17 +87,8 @@ class SteamClient {
 			const realTimeData = await this.requestRealTimeDataAPI(this._currentServer);
 			logger.info(`[WEBAPI] got real time match data ${JSON.stringify(realTimeData)}`);
 
-			const haveTeams = realTimeData.teams ? true : false;
-			const havePlayers = haveTeams && realTimeData.teams[0].players && realTimeData.teams[1].players ? true : false;
-			if (havePlayers) {
-				data.team1 = realTimeData.teams[0].players;
-				data.team2 = realTimeData.teams[1].players;
-			}
-			else {
-				logger.warn('[WEBAPI] API request succeeded without teams data');
-				data.error = 'API request succeeded without teams data';
-			}
-
+			data.team1 = realTimeData.teams[0].players;
+			data.team2 = realTimeData.teams[1].players;
 			return data;
 		}
 		catch (err) {
@@ -107,91 +98,105 @@ class SteamClient {
 	}
 
 	async requestSpectateFriendGame(steamId32Bit) {
+		const retryCounter = 4;
 		return new Promise((resolve, reject) => {
-			const msgCode = this._dota2Schema.EDOTAGCMsg.k_EMsgGCSpectateFriendGame;
-			const payload = new this._dota2Schema.CMsgSpectateFriendGame({
-				steam_id: this._dota2.ToSteamID(steamId32Bit),
-				live: false,
+			const operation = retry.operation({
+				retries: retryCounter,
+				factor: 2,
+				minTimeout: 1 * 1000,
 			});
+			operation.attempt((currentAttempt) => {
+				if (currentAttempt - 1 >= retryCounter) {
+					reject(`[DOTACOORDINATOR] failed to connect to game coordinator after ${currentAttempt} attempts`);
+				}
+				else if (!this._dota2._gcReady) {
+					// the game coordinator might not be ready immediately
+					// after connection
+					logger.info(`[DOTACOORDINATOR] connecting to game coordinator, attempt ${currentAttempt}`);
+					operation.retry(true);
+				}
+				else {
+					const msgCode = this._dota2Schema.EDOTAGCMsg.k_EMsgGCSpectateFriendGame;
+					const payload = new this._dota2Schema.CMsgSpectateFriendGame({
+						steam_id: this._dota2.ToSteamID(steamId32Bit),
+						live: false,
+					});
 
-			// the game coordinator might not be ready immediately
-			// after connection
-			if (!this._dota2._gcReady) {
-				reject('[DOTACOORDINATOR] dota game coordinator is not ready');
-			}
-
-			// both handler and cb needs to be present for sendToGC to work with cb so we have the thing below
-			// https://github.com/odota/node-dota2/blob/76b9fe35a7058fe0156e2e3e9c81cbc3b92a5224/handlers/helper.js#L103
-			// https://github.com/seishun/node-steam/blob/a6e4603c51b49287437eec239de9876bab31f5d0/lib/handlers/game_coordinator/index.js#L33
-			this._dota2.sendToGC(
-				msgCode,
-				payload,
-				(message, callback) => {
-					const response = this._dota2Schema.CMsgSpectateFriendGameResponse.decode(message);
-					logger.info(`[DOTACOORDINATOR] k_EMsgGCSpectateFriendGame request got code ${response.watch_live_result}: ${EWatchLiveResult[response.watch_live_result]}`);
-					if (callback !== undefined) {
-						callback(response);
-					}
-				},
-				(cbRes, err) => {
-					if (err) {
-						reject(`[DOTACOORDINATOR] ${err}`);
-					}
-					cbRes.server_steamid ? resolve(cbRes.server_steamid.toString()) : reject('[DOTACOORDINATOR] server not found');
-				},
-			);
+					// both handler and cb needs to be present for sendToGC to work with cb so we have the thing below
+					// https://github.com/odota/node-dota2/blob/76b9fe35a7058fe0156e2e3e9c81cbc3b92a5224/handlers/helper.js#L103
+					// https://github.com/seishun/node-steam/blob/a6e4603c51b49287437eec239de9876bab31f5d0/lib/handlers/game_coordinator/index.js#L33
+					this._dota2.sendToGC(
+						msgCode,
+						payload,
+						(message, callback) => {
+							const response = this._dota2Schema.CMsgSpectateFriendGameResponse.decode(message);
+							logger.info(`[DOTACOORDINATOR] k_EMsgGCSpectateFriendGame request got code ${response.watch_live_result}: ${EWatchLiveResult[response.watch_live_result]}`);
+							if (callback !== undefined) {
+								callback(response);
+							}
+						},
+						(cbRes, err) => {
+							if (err) {
+								reject(`[DOTACOORDINATOR] ${err}`);
+							}
+							cbRes.server_steamid ? resolve(cbRes.server_steamid.toString()) : reject('[DOTACOORDINATOR] server not found');
+						},
+					);
+				}
+			});
 		});
 	}
 
 	async requestRealTimeDataAPI(server_id) {
+		const retryCounter = 5;
 		return new Promise((resolve, reject) => {
 			const operation = retry.operation({
-				retries: 2,
+				retries: retryCounter,
 				factor: 2,
 				minTimeout: 1 * 1000,
 			});
 
+			const url = new URL(`https://api.steampowered.com/IDOTA2MatchStats_570/GetRealtimeStats/v1/?key=${process.env.STEAM_WEBAPI_KEY}&server_steam_id=${server_id}`);
 			operation.attempt(async currentAttempt => {
-				const url = new URL(`https://api.steampowered.com/IDOTA2MatchStats_570/GetRealtimeStats/v1/?key=${process.env.STEAM_WEBAPI_KEY}&server_steam_id=${server_id}`);
-
-				try {
-					const res = await fetch(url);
-					if (operation.retry(!res.ok)) {
-						logger.info(`[STEAMWEB] failed to fetch match data ${res.status}, attempt: ${currentAttempt}`);
-						currentAttempt++;
-						return ;
-					}
-
-					if (res.ok) {
-						// response.status >= 200 && response.status < 300
-						const data = res.json();
-						resolve(data);
-					}
-					else {
-						reject(`[WEBAPI] failed to fetch match data after ${currentAttempt} attempts`);
-					}
+				if (currentAttempt - 1 >= retryCounter) {
+					reject(`[STEAMWEB] failed to fetch match data after  ${currentAttempt} attempts`);
 				}
-				catch (error) {
-					logger.warn(`[WEBAPI] failed to fetch match data, got status: ${error}, attemp: ${currentAttempt}`);
-					currentAttempt++;
-					return ;
+				else {
+					try {
+						const res = await fetch(url);
+
+						if (res.ok) {
+							const data = await res.json();
+							if (data.teams) {
+								resolve(data);
+							}
+							else {
+								throw Error('API request succeeded without teams data');
+							}
+						}
+						else {
+							throw Error(`server responded with code ${res.status}`);
+						}
+					}
+					catch (error) {
+						logger.info(`[STEAMWEB] failed to fetch match data, got: ${error}, attempt: ${currentAttempt}`);
+						operation.retry(true);
+						return;
+					}
 				}
 			});
 		});
 	}
 
 	exit() {
-		return new Promise((resolve) => {
-			this._currentServer = null;
-			this._dota2.exit();
-			logger.info('[STEAMCLIENT] manually closed dota');
-			this._steamClient.disconnect();
-			logger.info('[STEAMCLIENT] manually closed steam');
-			this._steamClient.removeAllListeners();
-			this._dota2.removeAllListeners();
-			logger.info('[STEAMCLIENT] removed all listeners from dota and steam');
-			resolve(true);
-		});
+		this._currentServer = null;
+		this._dota2.exit();
+		logger.info('[STEAMCLIENT] manually closed dota');
+		this._steamClient.disconnect();
+		logger.info('[STEAMCLIENT] manually closed steam');
+		this._steamClient.removeAllListeners();
+		this._dota2.removeAllListeners();
+		logger.info('[STEAMCLIENT] removed all listeners from dota and steam');
 	}
 }
 

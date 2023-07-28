@@ -1,5 +1,5 @@
-import steamClientSingleton from './index.js';
-import { ErrorDotaClient } from '../utils/const.js';
+import steamClientSingleton from '../packages/dota/steam/index.js';
+import { ErrorDotaClient } from '../packages/dota/utils/const.js';
 
 test('testing game coordinator', async () => {
 	steamClientSingleton.connect();

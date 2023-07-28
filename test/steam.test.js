@@ -13,7 +13,7 @@ describe('steam client test', () => {
 			expect(error).toMatch(ErrorDotaClient[1]);
 			steamClientSingleton.exit();
 		}
-	// the request will fail after 190 seconds and 9 attempts
+	// the request will fail after 4 seconds and 12 attempts
 	}, 240 * 1000);
 });
 

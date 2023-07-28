@@ -98,12 +98,13 @@ class SteamClient {
 	}
 
 	async requestSpectateFriendGame(steamId32Bit) {
-		const retryCounter = 4;
+		const retryCounter = 6;
 		return new Promise((resolve, reject) => {
 			const operation = retry.operation({
 				retries: retryCounter,
 				factor: 2,
 				minTimeout: 1 * 1000,
+				maxTimeout: 32 * 1000,
 			});
 			operation.attempt((currentAttempt) => {
 				if (currentAttempt - 1 >= retryCounter) {
@@ -148,12 +149,13 @@ class SteamClient {
 	}
 
 	async requestRealTimeDataAPI(server_id) {
-		const retryCounter = 5;
+		const retryCounter = 6;
 		return new Promise((resolve, reject) => {
 			const operation = retry.operation({
 				retries: retryCounter,
 				factor: 2,
 				minTimeout: 1 * 1000,
+				maxTimeout: 32 * 1000,
 			});
 
 			const url = new URL(`https://api.steampowered.com/IDOTA2MatchStats_570/GetRealtimeStats/v1/?key=${process.env.STEAM_WEBAPI_KEY}&server_steam_id=${server_id}`);

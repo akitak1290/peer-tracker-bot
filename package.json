@@ -12,7 +12,8 @@
   ],
   "scripts": {
     "start": "node app.js",
-    "register": "node register-command.js"
+    "register": "node register-command.js",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watchAll --verbose"
   },
   "author": "KienNg",
   "license": "ISC",
@@ -25,6 +26,8 @@
     "winston": "^3.10.0"
   },
   "devDependencies": {
-    "eslint": "^8.44.0"
+    "@types/jest": "^29.5.3",
+    "eslint": "^8.44.0",
+    "jest": "^29.6.1"
   }
 }

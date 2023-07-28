@@ -17,7 +17,7 @@ export const EWatchLiveResult = {
 	14: 'ERROR_LOBBY_IS_LEAGUE',
 };
 
-// custom error
-// export const SteamClientError = {
-
-// }
+export const ErrorDotaClient = {
+	0: 'failed to connect to game coordinator',
+	1: 'k_EMsgGCSpectateFriendGame request failed, match server not found'
+};

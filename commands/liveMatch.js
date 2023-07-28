@@ -28,7 +28,7 @@ export async function fetchUserPeer(userId, peerId) {
 			// string and number
 			if (data[i].account_id == peerId) {
 				peer = data[i];
-				peer.matches = `https://www.opendota.com/players/${userId}/matches?included_account_id=${peerId}`;
+				peer.matchesUrl = `https://www.opendota.com/players/${userId}/matches?included_account_id=${peerId}`;
 				break;
 			}
 		}
@@ -43,7 +43,7 @@ export async function fetchUserPeer(userId, peerId) {
 	}
 }
 
-function parseDataToEmbed(id32bit, liveMatchData) {
+export async function parseDataToEmbed(id32bit, liveMatchData) {
 	const playerFields = [];
 	const peerFields = [];
 
@@ -66,16 +66,16 @@ function parseDataToEmbed(id32bit, liveMatchData) {
 	}
 
 	for (const team in liveMatchData) {
-		liveMatchData[team].forEach(async (player) => {
-			const peer = await fetchUserPeer(id32bit, player.accountid);
+		for (let i = 0; i < liveMatchData[team].length; i++) {
+			const peer = await fetchUserPeer(id32bit, liveMatchData[team][i].accountid);
 
-			if (peer.matches) {
+			if (peer.matchesUrl) {
 				peerFields.push({
-					name: '',
-					value: `${peer.matches}`,
+					name: `${liveMatchData[team][i].name}`,
+					value: `${peer.matchesUrl}`,
 				});
 			}
-		});
+		}
 	}
 
 	if (peerFields.length === 0) {

@@ -15,6 +15,7 @@
   "license": "ISC",
   "dependencies": {
     "dota2": "^7.0.3",
+    "dota2-gsi": "^1.0.2",
     "dotenv": "^16.3.1",
     "node-fetch": "^3.3.1",
     "restry": "^0.1.3",

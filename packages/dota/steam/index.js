@@ -6,7 +6,7 @@ import steam_resources from 'steam-resources';
 import retry from 'retry';
 
 import logger from '../utils/logger.js';
-import { EWatchLiveResult } from '../utils/const.js';
+import { EWatchLiveResult, ErrorDotaClient } from '../utils/const.js';
 
 dotenv.config({ path: '.env' });
 
@@ -98,22 +98,24 @@ class SteamClient {
 	}
 
 	async requestSpectateFriendGame(steamId32Bit) {
-		const retryCounter = 6;
+		// 1, 4, 8, 16, 32, 32, 32, 32, 32
+		const retryCounter = 8;
 		return new Promise((resolve, reject) => {
 			const operation = retry.operation({
 				retries: retryCounter,
 				factor: 2,
-				minTimeout: 1 * 1000,
+				minTimeout: 4 * 1000,
 				maxTimeout: 32 * 1000,
 			});
 			operation.attempt((currentAttempt) => {
+				logger.info(`[DOTACOORDINATOR] connecting to game coordinator, attempt ${currentAttempt}`);
 				if (currentAttempt - 1 >= retryCounter) {
-					reject(`[DOTACOORDINATOR] failed to connect to game coordinator after ${currentAttempt} attempts`);
+					logger.warn(`[DOTACOORDINATOR] ${ErrorDotaClient[0]} after ${currentAttempt} attempts`);
+					reject(ErrorDotaClient[0]);
 				}
 				else if (!this._dota2._gcReady) {
 					// the game coordinator might not be ready immediately
 					// after connection
-					logger.info(`[DOTACOORDINATOR] connecting to game coordinator, attempt ${currentAttempt}`);
 					operation.retry(true);
 				}
 				else {
@@ -136,11 +138,14 @@ class SteamClient {
 								callback(response);
 							}
 						},
-						(cbRes, err) => {
-							if (err) {
-								reject(`[DOTACOORDINATOR] ${err}`);
+						(cbRes) => {
+							if (cbRes.server_steamid) {
+								resolve(cbRes.server_steamid.toString());
 							}
-							cbRes.server_steamid ? resolve(cbRes.server_steamid.toString()) : reject('[DOTACOORDINATOR] server not found');
+							else {
+								logger.warn(`[DOTACOORDINATOR] ${ErrorDotaClient[1]}`);
+								reject(ErrorDotaClient[1]);
+							}
 						},
 					);
 				}
@@ -149,7 +154,7 @@ class SteamClient {
 	}
 
 	async requestRealTimeDataAPI(server_id) {
-		const retryCounter = 6;
+		const retryCounter = 8;
 		return new Promise((resolve, reject) => {
 			const operation = retry.operation({
 				retries: retryCounter,
@@ -170,6 +175,7 @@ class SteamClient {
 						if (res.ok) {
 							const data = await res.json();
 							if (data.teams) {
+								logger.info(`[STEAMWEB] got match data, got: ${JSON.stringify(data)}`);
 								resolve(data);
 							}
 							else {

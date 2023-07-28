@@ -19,5 +19,5 @@ export const EWatchLiveResult = {
 
 export const ErrorDotaClient = {
 	0: 'failed to connect to game coordinator',
-	1: 'k_EMsgGCSpectateFriendGame request failed, match server not found'
+	1: 'k_EMsgGCSpectateFriendGame request failed, match server not found',
 };

@@ -35,7 +35,7 @@ class SteamClient {
 		this._steamClient.on('logOnResponse', (logOnRes) => {
 			logger.info(`[STEAMCLIENT] logged in as ${process.env.STEAM_USER_NAME}`);
 			// set status to online
-			this._steamFriends.setPersonaState(Steam.EPersonaState.Busy);
+			// this._steamFriends.setPersonaState(Steam.EPersonaState.Busy);
 
 			if (logOnRes.eresult == Steam.EResult.OK) {
 				this._dota2.launch();
@@ -85,7 +85,7 @@ class SteamClient {
 			logger.info(`[STEAMCLIENT] got friend's current server id ${this._currentServer}`);
 
 			const realTimeData = await this.requestRealTimeDataAPI(this._currentServer);
-			logger.info(`[WEBAPI] got real time match data ${JSON.stringify(realTimeData)}`);
+			logger.info(`[STEAMWEB] got real time match data ${JSON.stringify(realTimeData)}`);
 
 			data.team1 = realTimeData.teams[0].players;
 			data.team2 = realTimeData.teams[1].players;
@@ -98,14 +98,12 @@ class SteamClient {
 	}
 
 	async requestSpectateFriendGame(steamId32Bit) {
-		// 1, 4, 8, 16, 32, 32, 32, 32, 32
-		const retryCounter = 8;
+		const retryCounter = 12;
 		return new Promise((resolve, reject) => {
 			const operation = retry.operation({
 				retries: retryCounter,
-				factor: 2,
-				minTimeout: 4 * 1000,
-				maxTimeout: 32 * 1000,
+				factor: 1,
+				minTimeout: 20 * 1000,
 			});
 			operation.attempt((currentAttempt) => {
 				logger.info(`[DOTACOORDINATOR] connecting to game coordinator, attempt ${currentAttempt}`);
@@ -154,22 +152,21 @@ class SteamClient {
 	}
 
 	async requestRealTimeDataAPI(server_id) {
-		const retryCounter = 8;
+		const retryCounter = 12;
 		return new Promise((resolve, reject) => {
 			const operation = retry.operation({
 				retries: retryCounter,
-				factor: 2,
-				minTimeout: 1 * 1000,
-				maxTimeout: 32 * 1000,
+				factor: 1,
+				minTimeout: 20 * 1000,
 			});
 
-			const url = new URL(`https://api.steampowered.com/IDOTA2MatchStats_570/GetRealtimeStats/v1/?key=${process.env.STEAM_WEBAPI_KEY}&server_steam_id=${server_id}`);
 			operation.attempt(async currentAttempt => {
 				if (currentAttempt - 1 >= retryCounter) {
 					reject(`[STEAMWEB] failed to fetch match data after  ${currentAttempt} attempts`);
 				}
 				else {
 					try {
+						const url = new URL(`https://api.steampowered.com/IDOTA2MatchStats_570/GetRealtimeStats/v1/?key=${process.env.STEAM_WEBAPI_KEY}&server_steam_id=${server_id}`);
 						const res = await fetch(url);
 
 						if (res.ok) {
@@ -187,7 +184,7 @@ class SteamClient {
 						}
 					}
 					catch (error) {
-						logger.info(`[STEAMWEB] failed to fetch match data, got: ${error}, attempt: ${currentAttempt}`);
+						logger.info(`[STEAMWEB] failed to fetch match data, got: ${error.message}, attempt: ${currentAttempt}`);
 						operation.retry(true);
 						return;
 					}

@@ -1,32 +1,99 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 
 import Tags from '../db/index.js';
-import { getMatchPlayers, setEvent } from '../packages/dota/index.js';
+import { getMatchPlayersWithPlayer, setEvent } from '../packages/dota/index.js';
 import client from '../client.js';
+import logger from '../utils/logger.js';
+// import { ErrorOpenDotaApi } from '../utils/const.js';
 
 setEvent('liveMatchData', sendUserData);
 
-async function fetchUserPeer(userId, peerId) {
+export async function fetchUserPeer(userId, peerId) {
 	let peer = {};
-	// API endpoint to fetch user's peers
 	const url = `https://api.opendota.com/api/players/${userId}/peers`;
-	const res = await fetch(url);
-	const data = await res.json();
-	// throw API errors
-	if (!res.ok) {
-		console.log(res.status);
-		throw new Error(JSON.stringify(data));
+	// API endpoint to fetch user's peers
+	try {
+		const res = await fetch(url);
+		const data = await res.json();
+
+		if (!res.ok) {
+			// bad request code
+			// throw new Error({
+			// 	message: JSON.stringify(data),
+			// });
+			throw new Error(JSON.stringify(data.error));
+		}
+
+		for (let i = 0; i < data.length; i++) {
+			// string and number
+			if (data[i].account_id == peerId) {
+				peer = data[i];
+				peer.matches = `https://www.opendota.com/players/${userId}/matches?included_account_id=${peerId}`;
+				break;
+			}
+		}
+		return peer;
+	}
+	catch (error) {
+		// network error or operational error
+		logger.warn(`[OPENDOTAAPI] ${error.message}`);
+		peer.error = error.message;
+		return peer;
+		// throw error;
+	}
+}
+
+function parseDataToEmbed(id32bit, liveMatchData) {
+	const playerFields = [];
+	const peerFields = [];
+
+	for (let i = 0; i < liveMatchData.team1.length; i++) {
+		playerFields.push({
+			name: `${liveMatchData.team1[i].name}`,
+			value: `[${liveMatchData.team1[i].accountid}](https://www.dotabuff.com/players/${liveMatchData.team1[i].accountid})`,
+			inline: true,
+		});
+		playerFields.push({
+			name: `${liveMatchData.team2[i].name}`,
+			value: `[${liveMatchData.team2[i].accountid}](https://www.dotabuff.com/players/${liveMatchData.team2[i].accountid})`,
+			inline: true,
+		});
+		playerFields.push({
+			name: '\u200B',
+			value: '\u200B',
+			inline: true,
+		});
 	}
 
-	for (let i = 0; i < data.length; i++) {
-		// string and number
-		if (data[i].account_id == peerId) {
-			peer = data[i];
-			peer.matches = `https://www.opendota.com/players/${userId}/matches?included_account_id=${peerId}`;
-			break;
-		}
+	for (const team in liveMatchData) {
+		liveMatchData[team].forEach(async (player) => {
+			const peer = await fetchUserPeer(id32bit, player.accountid);
+
+			if (peer.matches) {
+				peerFields.push({
+					name: '',
+					value: `${peer.matches}`,
+				});
+			}
+		});
 	}
-	return peer;
+
+	if (peerFields.length === 0) {
+		peerFields.push({
+			name: 'No peer found in this match',
+			value: '\u200B',
+		});
+	}
+
+	return new EmbedBuilder()
+		.setDescription('Match players')
+		.addFields([
+			{ name: '\u200B', value: '\u200B' },
+			...playerFields,
+			{ name: '\u200B', value: '\u200B' },
+			...peerFields,
+		])
+		.setTimestamp();
 }
 
 async function sendUserData(id64bit) {
@@ -34,66 +101,16 @@ async function sendUserData(id64bit) {
 
 	if (user) {
 		user.increment('usage_count');
-		try {
-			const data = await getMatchPlayers(Number(user.steamId.substr(-16, 16)) - 6561197960265728);
-			const channel = client.channels.cache.find(c => c.name === process.env.MASTER_CHANNEL_NAME);
+		const id32bit = Number(user.steamId.substr(-16, 16)) - 6561197960265728;
+		const data = await getMatchPlayersWithPlayer(id32bit);
+		const channel = client.channels.cache.find(c => c.name === process.env.MASTER_CHANNEL_NAME);
 
-			if (data.length !== 0) {
-				const playerFields = [];
-				const peerFields = [];
-
-				for (let i = 0; i < data.team1.length; i++) {
-					playerFields.push({
-						name: `${data.team1[i].name}`,
-						value: `[${data.team1[i].accountid}](https://www.dotabuff.com/players/${data.team1[i].accountid})`,
-						inline: true,
-					});
-					playerFields.push({
-						name: `${data.team2[i].name}`,
-						value: `[${data.team2[i].accountid}](https://www.dotabuff.com/players/${data.team2[i].accountid})`,
-						inline: true,
-					});
-					playerFields.push({
-						name: '\u200B',
-						value: '\u200B',
-						inline: true,
-					});
-				}
-
-				for (const team in data) {
-					data[team].forEach(async (player) => {
-						const peer = await fetchUserPeer(user.steamId, player.id);
-
-						if (peer.matches) {
-							peerFields.push({
-								name: '',
-								value: `${peer.matches}`,
-							});
-						}
-					});
-				}
-
-				if (peerFields.length === 0) {
-					peerFields.push({
-						name: 'No peer found in this match',
-						value: '\u200B',
-					});
-				}
-
-				const userEmbed = new EmbedBuilder()
-					.setDescription('Match players')
-					.addFields([
-						{ name: '\u200B', value: '\u200B' },
-						...playerFields,
-						{ name: '\u200B', value: '\u200B' },
-						...peerFields,
-					])
-					.setTimestamp();
-				channel.send({ embeds: [userEmbed] });
-			}
+		if (data.length !== 0) {
+			const userEmbed = parseDataToEmbed(id32bit, data);
+			channel.send({ embeds: [userEmbed] });
 		}
-		catch (error) {
-			// not sure what to put here atm
+		else {
+			channel.send({ content: 'Couldn\'t get live match data :(', ephemeral: true });
 		}
 	}
 }
@@ -104,74 +121,20 @@ export default {
 		.setDescription('Get information about user\'s current match'),
 	async execute(interaction) {
 		await interaction.deferReply();
-		const tag = await Tags.findOne({ where: { name: interaction.user.username } });
+		const user = await Tags.findOne({ where: { name: interaction.user.username } });
 
-		if (tag) {
+		if (user) {
 			// equivalent to: UPDATE tags SET usage_count = usage_count + 1 WHERE name = 'tagName';
-			tag.increment('usage_count');
+			user.increment('usage_count');
+			const id32bit = Number(user.steamId.substr(-16, 16)) - 6561197960265728;
+			const data = await getMatchPlayersWithPlayer(id32bit);
 
-			try {
-				const data = await getMatchPlayers(Number(tag.steamId.substr(-16, 16)) - 6561197960265728);
-
-				if (data.length === 0) {
-					await interaction.editReply({ content: 'No peer data found' });
-				}
-				else {
-					const playerFields = [];
-					const peerFields = [];
-
-					for (let i = 0; i < data.team1.length; i++) {
-						playerFields.push({
-							name: `${data.team1[i].name}`,
-							value: `[${data.team1[i].accountid}](https://www.dotabuff.com/players/${data.team1[i].accountid})`,
-							inline: true,
-						});
-						playerFields.push({
-							name: `${data.team2[i].name}`,
-							value: `[${data.team2[i].accountid}](https://www.dotabuff.com/players/${data.team2[i].accountid})`,
-							inline: true,
-						});
-						playerFields.push({
-							name: '\u200B',
-							value: '\u200B',
-							inline: true,
-						});
-					}
-
-					for (const team in data) {
-						data[team].forEach(async (player) => {
-							const peer = await fetchUserPeer(tag.steamId, player.id);
-
-							if (peer.matches) {
-								peerFields.push({
-									name: '',
-									value: `${peer.matches}`,
-								});
-							}
-						});
-					}
-
-					if (peerFields.length === 0) {
-						peerFields.push({
-							name: 'No peer found in this match',
-							value: '\u200B',
-						});
-					}
-
-					const userEmbed = new EmbedBuilder()
-						.setDescription('Match players')
-						.addFields([
-							{ name: '\u200B', value: '\u200B' },
-							...playerFields,
-							{ name: '\u200B', value: '\u200B' },
-							...peerFields,
-						])
-						.setTimestamp();
-					await interaction.editReply({ embeds: [userEmbed] });
-				}
+			if (data.length !== 0) {
+				const userEmbed = parseDataToEmbed(id32bit, data);
+				await interaction.editReply({ embeds: [userEmbed] });
 			}
-			catch (error) {
-				await interaction.editReply({ content: `Uh oh, ${error.message}`, ephemeral: true });
+			else {
+				await interaction.editReply({ content: 'No peer data found' });
 			}
 		}
 		else {
